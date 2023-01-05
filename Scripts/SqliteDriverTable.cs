@@ -88,6 +88,50 @@ namespace SqliteDriver
             return Update(SqliteDriverUpdateOptions.CreateUpdateOptionsForValue(value), options) != 0;
         }
 
+        /// <summary>
+        /// Returns true if the value has been inserted and not updated.
+        /// </summary>
+        /// <typeparam name="V"></typeparam>
+        /// <param name="value"></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
+        public bool Upsert<V>(V value, SqliteDriverQueryOptions options = null)
+        {
+            if (!Has(options))
+            {
+                Insert(value);
+                return true; 
+            }
+            else
+            {
+                UpdateValue(value, options);
+                return false;
+            }
+        }
+
+        public bool Has(SqliteDriverQueryOptions options)
+        {
+            var cmd = driver.CreateCommand().Select(name);
+            options.Write(ref cmd);
+            var reader = cmd.Execute(driver.connection);
+            return reader.HasRows;
+        }
+
+        public long GetRowPosition(SqliteDriverQueryOptions options)
+        {
+            var cmd = driver.CreateCommand().RowNumber(name, options);
+            var reader = cmd.Execute(driver.connection);
+            return (long)reader.GetValue(0);
+        }
+
+        public long GetRowCount(SqliteDriverQueryOptions options = null)
+        {
+            var cmd = driver.CreateCommand().Count(name);
+            options?.Write(ref cmd);
+            using var reader = cmd.Execute(driver.connection);
+            return (long)reader.GetValue(0);
+        }
+
         public int Update(SqliteDriverUpdateOptions[] updateOptions, SqliteDriverQueryOptions options = null)
         {
             var cmd = driver.CreateCommand().Update(name);

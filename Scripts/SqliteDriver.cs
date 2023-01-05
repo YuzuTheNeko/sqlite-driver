@@ -34,6 +34,8 @@ namespace SqliteDriver
             return list.ToArray();
         }
 
+        public long GetRowCount<V>(SqliteDriverQueryOptions options = null) => GetTable(typeof(V)).GetRowCount(options);
+
         public bool UpdateValue<V>(V value, SqliteDriverQueryOptions options = null)
         {
             return GetTable(typeof(V)).UpdateValue(value, options);
@@ -58,6 +60,10 @@ namespace SqliteDriver
         {
             return GetTable(typeof(V)).Get<V>(options);
         }
+
+        public long GetRowPosition<V>(SqliteDriverQueryOptions options) => GetTable<V>().GetRowPosition(options);
+        public bool Has<V>(SqliteDriverQueryOptions options) => GetTable<V>().Has(options);
+        public bool Upsert<V>(V value, SqliteDriverQueryOptions options = null) => GetTable<V>().Upsert(value, options);
 
         public void Insert<V>(V value)
         {
@@ -156,6 +162,7 @@ namespace SqliteDriver
             Debug.Log(this.tables.Count);
         }
 
+        public SqliteDriverTable<T> GetTable<V>() => GetTable(typeof(V));
         public SqliteDriverTable<T> GetTable(Type type) => tables[type];
 
         public void Open()

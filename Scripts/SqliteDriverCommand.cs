@@ -26,9 +26,33 @@ namespace SqliteDriver
             return this;
         }
 
+        public SqliteDriverCommand RowNumber(string table, SqliteDriverQueryOptions options)
+        {
+            var cmd = this;
+
+            list.Add($"SELECT ROW_NUMBER() OVER(");
+            options.sort.Write(ref cmd);
+            list.Add($") RowNum, * FROM {table}");
+
+            SqliteDriverWhereOptions.Write(ref cmd, options.where);
+            return this; 
+        }
+
         public SqliteDriverCommand Insert(string table, string[] columns)
         {
             list.Add("INSERT INTO " + table + "(" + string.Join(", ", columns) + ")");
+            return this;
+        }
+
+        public SqliteDriverCommand Count(string table)
+        {
+            list.Add("SELECT COUNT(*) FROM " + table);
+            return this;
+        }
+
+        public SqliteDriverCommand OrderBy(string[] columns, SortOperatorType operatorType, SortType sortType)
+        {
+            list.Add($"ORDER BY ({string.Join(operatorType.ToString(), columns)}) {sortType}");
             return this;
         }
 
