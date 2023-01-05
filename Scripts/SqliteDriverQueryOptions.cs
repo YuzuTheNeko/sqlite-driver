@@ -7,6 +7,8 @@ namespace SqliteDriver
     public class SqliteDriverQueryOptions
     {
         public SqliteDriverWhereOptions[] where;
+        public uint? offset;
+        public uint? limit;
 
         public void Write(ref SqliteDriverCommand cmd)
         {
@@ -20,6 +22,12 @@ namespace SqliteDriver
                     where[i].Write(ref cmd, hasNext);
                 }
             }
+
+            if (offset.HasValue)
+                cmd.Offset(offset.Value);
+
+            if (limit.HasValue)
+                cmd.Limit(limit.Value);
         }
     }
 }

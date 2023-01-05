@@ -34,12 +34,22 @@ namespace SqliteDriver
             return list.ToArray();
         }
 
+        public bool UpdateValue<V>(V value, SqliteDriverQueryOptions options = null)
+        {
+            return GetTable(typeof(V)).UpdateValue(value, options);
+        }
+
+        public int Update<V>(SqliteDriverUpdateOptions[] updateOptions, SqliteDriverQueryOptions options = null)
+        {
+            return GetTable(typeof(V)).Update(updateOptions, options);
+        }
+
         public V[] All<V>(SqliteDriverQueryOptions options = null)
         {
             return GetTable(typeof(V)).All<V>(options);
         }
 
-        public int Delete<V>(SqliteDriverQueryOptions options)
+        public int Delete<V>(SqliteDriverQueryOptions options = null)
         {
             return GetTable(typeof(V)).Delete(options);
         }

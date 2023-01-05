@@ -13,6 +13,11 @@ namespace SqliteDriver
         public string includes;
         public string startsWith;
         public string endsWith;
+        public object greaterThan;
+        public object greatherThanEquals;
+        public object lesserThan;
+        public object lesserThanEquals;
+        public object[] values;
 
         public bool not;
         public bool or;
@@ -38,6 +43,16 @@ namespace SqliteDriver
                 cmd.StartsWith(column, startsWith);
             else if (endsWith != null)
                 cmd.EndsWith(column, endsWith);
+            else if (greaterThan != null)
+                cmd.Gt(column, greaterThan);
+            else if (greatherThanEquals != null)
+                cmd.Gte(column, greatherThanEquals);
+            else if (lesserThan != null)
+                cmd.Lt(column, lesserThan);
+            else if (lesserThanEquals != null)
+                cmd.Lte(column, lesserThanEquals);
+            else if (values != null && values.Length != 0)
+                cmd.In(column, values);
 
             if (hasNext)
             {

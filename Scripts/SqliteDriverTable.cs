@@ -9,6 +9,8 @@ namespace SqliteDriver
 {
     public class SqliteDriverTable<T>
     {
+        public static readonly Dictionary<Type, FieldInfo[]> FieldCache = new();
+
         private SqliteDriver<T> driver;
         public SqliteDriverSerializer serializer;
         public readonly string name;
@@ -41,7 +43,12 @@ namespace SqliteDriver
         public static FieldInfo[] GetStructFields() => GetStructFields(typeof(T));
         public static FieldInfo[] GetStructFields(Type type)
         {
-            return type.GetFields(BindingFlags.Instance | BindingFlags.Public);
+            // We try to pick the fields from cache in case they were requested before, this increases performance.
+            if (FieldCache.TryGetValue(type, out var fields))
+                return fields;
+            fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public);
+            FieldCache.Add(type, fields);
+            return fields;
         }
 
         public static SqliteDriverColumn[] GetColumns() => GetColumns(typeof(T));
@@ -76,7 +83,20 @@ namespace SqliteDriver
             return missing.ToArray();
         }
 
-        public int Delete(SqliteDriverQueryOptions options)
+        public bool UpdateValue<V>(V value, SqliteDriverQueryOptions options = null)
+        {
+            return Update(SqliteDriverUpdateOptions.CreateUpdateOptionsForValue(value), options) != 0;
+        }
+
+        public int Update(SqliteDriverUpdateOptions[] updateOptions, SqliteDriverQueryOptions options = null)
+        {
+            var cmd = driver.CreateCommand().Update(name);
+            SqliteDriverUpdateOptions.Write(updateOptions, serializer, ref cmd);
+            options?.Write(ref cmd);
+            return cmd.Execute(driver.connection).RecordsAffected;
+        }
+
+        public int Delete(SqliteDriverQueryOptions options = null)
         {
             var cmd = driver.CreateCommand().Delete(name);
             options?.Write(ref cmd);
@@ -91,6 +111,8 @@ namespace SqliteDriver
             var reader = cmd.Execute(driver.connection);
             return reader.Read() ? serializer.Deserialize<V>(reader) : default;
         }
+
+
 
         public void Insert<V>(V value)
         {

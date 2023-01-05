@@ -19,11 +19,16 @@ namespace SqliteDriver
 
     public class SqliteDriverSerializer
     {
+        public readonly Dictionary<string, SqliteDriverColumn> columnsDict = new();
         public readonly SqliteDriverColumn[] columns;
 
         public SqliteDriverSerializer(SqliteDriverColumn[] columns)
         {
             this.columns = columns;
+            foreach (var clm in columns)
+            {
+                columnsDict.Add(clm.name, clm);
+            }
         }
 
         public T Deserialize<T>(IDataReader reader)

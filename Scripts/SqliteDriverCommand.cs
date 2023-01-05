@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
@@ -10,7 +11,7 @@ namespace SqliteDriver
 {
     public class SqliteDriverCommand
     {
-        private List<string> list = new();
+        private readonly List<string> list = new();
         private bool notClause = false;
 
         public SqliteDriverCommand Select(string table)
@@ -31,6 +32,47 @@ namespace SqliteDriver
             return this;
         }
 
+        public SqliteDriverCommand Gte(string column, object value)
+        {
+            list.Add($"{column} >= {value}");
+            return this;
+        }
+
+        public SqliteDriverCommand Gt(string column, object value)
+        {
+            list.Add($"{column} > {value}");
+            return this;
+        }
+
+        public SqliteDriverCommand In(string column, object[] values)
+        {
+            list.Add($"{column} {InjectNotClause()}IN ({string.Join(',', values.Select(c => SqliteDriverSerializer.Sanitize(c, true)))})");
+            return this;
+        }
+
+        public SqliteDriverCommand Lte(string column, object value)
+        {
+            list.Add($"{column} <= {value}");
+            return this;
+        }
+
+        public SqliteDriverCommand Lt(string column, object value)
+        {
+            list.Add($"{column} < {value}");
+            return this;
+        }
+
+        public SqliteDriverCommand Offset(uint offset)
+        {
+            list.Add($"OFFSET {offset}");
+            return this;
+        }
+
+        public SqliteDriverCommand Limit(uint limit)
+        {
+            list.Add($"LIMIT {limit}");
+            return this;
+        }
         public SqliteDriverCommand Delete(string table)
         {
             list.Add("DELETE FROM " + table);
@@ -45,6 +87,18 @@ namespace SqliteDriver
                 list.Add($"({i})");
             }
             return this;
+        }
+
+        public SqliteDriverCommand WriteUpdateOp(string column, UpdateOperationType operation, object value)
+        {
+            list.Add($"{column} = {(operation == UpdateOperationType.Set ? value : $"{column} {(operation == UpdateOperationType.Add ? "+" : "-")} {value}")}");
+            return this;
+        }
+
+        public SqliteDriverCommand Update(string table)
+        {
+            list.Add($"UPDATE {table} SET");
+            return this; 
         }
 
         public SqliteDriverCommand TableInfo(string name)
