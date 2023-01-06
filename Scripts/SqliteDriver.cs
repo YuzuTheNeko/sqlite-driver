@@ -70,7 +70,7 @@ namespace SqliteDriver
             GetTable(typeof(V)).Insert(value);
         }
 
-        public string[] GetTableColumns(string name)
+        public List<string> GetTableColumns(string name)
         {
             var cmd = CreateCommand().Pragma.TableInfo(name);
             var reader = cmd.Execute(connection);
@@ -81,7 +81,7 @@ namespace SqliteDriver
                 columns.Add(reader.GetString(1));
             }
 
-            return columns.ToArray();
+            return columns;
         }
 
         private void Init()
@@ -101,7 +101,7 @@ namespace SqliteDriver
                     Debug.LogWarning("Creating table " + memoryTable.Name + " with " + memoryTableColumns.Length + " columns");
                     var newTable = new SqliteDriverTable<T>(this, memoryTable.Name);
                     newTable.SetColumns(memoryTableColumns);
-                    newTable.Create(memoryTable);
+                    newTable.Create();
                     this.tables.Add(memoryTable.FieldType, newTable);
                     continue;
                 }
@@ -116,16 +116,26 @@ namespace SqliteDriver
                 var tbl = new SqliteDriverTable<T>(this, memoryTable.Name);
                 this.tables.Add(memoryTable.FieldType, tbl);
 
+                var unusedColumns = SqliteDriverTable<T>.GetUnusedColumns(memoryTable.FieldType, existingColumnNames);
+
+                foreach (var unusedClm in unusedColumns)
+                {
+                    tbl.DropColumn(unusedClm);
+                    existingColumnNames.Remove(unusedClm);
+                    Debug.Log($"Column {unusedClm} has been dropped.");
+                }
+
                 var difference = SqliteDriverTable<T>.GetMissingColumns(memoryTable.FieldType, existingColumnNames);
+
                 if (difference.Length == 0)
                 {
                     Debug.LogWarning("All columns exist!");
-                    var clms = new SqliteDriverColumn[existingColumnNames.Length];
-                    for (int y = 0; y < existingColumnNames.Length; y++)
+                    var clms = new SqliteDriverColumn[existingColumnNames.Count];
+                    for (int y = 0; y < existingColumnNames.Count; y++)
                     {
                         var name = existingColumnNames[y];
                         var reference = memoryTable.FieldType.GetField(name);
-                        clms[y] = new(name, y, reference.FieldType, SqliteDriverSerializer.GetDataTypeFor(reference.FieldType));
+                        clms[y] = new(reference, y);
                     }
                     tbl.SetColumns(clms);
                     continue;
@@ -140,7 +150,7 @@ namespace SqliteDriver
                     {
                         Debug.Log($"Column {alreadyExisting} exists on memory table");
                         var type = SqliteDriverSerializer.GetDataTypeFor(existsInMemory.FieldType);
-                        tableColumns.Add(new(existsInMemory.Name, x, existsInMemory.FieldType, type));
+                        tableColumns.Add(new(existsInMemory, x));
                     }
                     else
                         Debug.LogWarning($"Column {alreadyExisting} does not exist on memory table.");
@@ -150,8 +160,8 @@ namespace SqliteDriver
                 foreach (var nonExisting in difference)
                 {
                     var type = SqliteDriverSerializer.GetDataTypeFor(nonExisting.FieldType);
-                    var clm = new SqliteDriverColumn(nonExisting.Name, x, nonExisting.FieldType, type);
-                    tbl.CreateColumn(nonExisting);
+                    var clm = new SqliteDriverColumn(nonExisting, x);
+                    tbl.CreateColumn(clm);
                     Debug.Log($"Appended column {nonExisting.Name} to table {tbl.name}.");
                     tableColumns.Add(clm);
                     x++;
@@ -169,6 +179,7 @@ namespace SqliteDriver
         {
             connection.Open();
             Init();
+            Debug.Log($"Running sqlite v{connection.ServerVersion}");
         }
 
         public void Close()

@@ -22,21 +22,27 @@ namespace SqliteDriver
             this.driver = driver;
         }
 
+        public void DropColumn(string column)
+        {
+            var cmd = driver.CreateCommand().AlterTable(name).DropColumn(column);
+            cmd.ExecuteNonQuery(driver.connection);
+        }
+
         public void SetColumns(SqliteDriverColumn[] columns)
         {
             columnNames = columns.Select(c => c.name).ToArray();
             serializer = new(columns);
         }
 
-        public void CreateColumn(FieldInfo field)
+        public void CreateColumn(SqliteDriverColumn clm)
         {
-            var cmd = driver.CreateCommand().AlterTable(name).CreateColumn(field, true);
+            var cmd = driver.CreateCommand().AlterTable(name).CreateColumn(clm, true);
             cmd.ExecuteNonQuery(driver.connection);
         }
 
-        public void Create(FieldInfo field)
+        public void Create()
         {
-            var cmd = driver.CreateCommand().CreateTable<T>(field);
+            var cmd = driver.CreateCommand().CreateTable<T>(name, serializer.columns);
             cmd.ExecuteNonQuery(driver.connection);
         }
 
@@ -59,14 +65,29 @@ namespace SqliteDriver
             for (int i = 0; i < fields.Length; i++)
             {
                 var field = fields[i];
-                columns[i] = new(field.Name, i, field.FieldType, SqliteDriverSerializer.GetDataTypeFor(field.FieldType));
+                columns[i] = new(field, i);
             }
-
             return columns;
         }
 
-        public static FieldInfo[] GetMissingColumns(string[] existing) => GetMissingColumns(typeof(T), existing);
-        public static FieldInfo[] GetMissingColumns(Type type, string[] existing)
+        public static string[] GetUnusedColumns(Type type, List<string> existing)
+        {
+            var fields = GetStructFields(type);
+            var unused = new List<string>();
+            for (int i = 0;i < existing.Count;i++)
+            {
+                var current = existing[i];
+                var exists = fields.FirstOrDefault(c => c.Name == current) != null;
+                if (exists)
+                    continue;
+                unused.Add(current);
+            }
+
+            return unused.ToArray();
+        }
+
+        public static FieldInfo[] GetMissingColumns(List<string> existing) => GetMissingColumns(typeof(T), existing);
+        public static FieldInfo[] GetMissingColumns(Type type, List<string> existing)
         {
             var fields = GetStructFields(type);
             var missing = new List<FieldInfo>();

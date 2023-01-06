@@ -11,28 +11,33 @@ namespace SqliteDriver
 {
     public class SqliteDriverCommand
     {
-        private readonly List<string> list = new();
+        private string query = "";
         private bool notClause = false;
 
         public SqliteDriverCommand Select(string table)
         {
-            list.Add("SELECT * FROM " + table);
+            Write("SELECT * FROM " + table);
             return this;
         }
 
         public SqliteDriverCommand WriteRaw(string raw)
         {
-            list.Add(raw);
+            Write(raw);
             return this;
+        }
+
+        private void Write(string q)
+        {
+            query += $" {q} ";
         }
 
         public SqliteDriverCommand RowNumber(string table, SqliteDriverQueryOptions options)
         {
             var cmd = this;
 
-            list.Add($"SELECT ROW_NUMBER() OVER(");
+            Write($"SELECT ROW_NUMBER() OVER(");
             options.sort.Write(ref cmd);
-            list.Add($") RowNum, * FROM {table}");
+            Write($") RowNum, * FROM {table}");
 
             SqliteDriverWhereOptions.Write(ref cmd, options.where);
             return this; 
@@ -40,138 +45,135 @@ namespace SqliteDriver
 
         public SqliteDriverCommand Insert(string table, string[] columns)
         {
-            list.Add("INSERT INTO " + table + "(" + string.Join(", ", columns) + ")");
+            Write("INSERT INTO " + table + "(" + string.Join(", ", columns) + ")");
             return this;
         }
 
         public SqliteDriverCommand Count(string table)
         {
-            list.Add("SELECT COUNT(*) FROM " + table);
+            Write("SELECT COUNT(*) FROM " + table);
+            return this;
+        }
+
+        public SqliteDriverCommand DropColumn(string column)
+        {
+            Write($"DROP COLUMN {column}");
             return this;
         }
 
         public SqliteDriverCommand OrderBy(string[] columns, SortOperatorType operatorType, SortType sortType)
         {
-            list.Add($"ORDER BY ({string.Join(operatorType.ToString(), columns)}) {sortType}");
+            Write($"ORDER BY ({string.Join(operatorType.ToString(), columns)}) {sortType}");
             return this;
         }
 
         public SqliteDriverCommand Gte(string column, object value)
         {
-            list.Add($"{column} >= {value}");
+            Write($"{column} >= {value}");
             return this;
         }
 
         public SqliteDriverCommand Gt(string column, object value)
         {
-            list.Add($"{column} > {value}");
+            Write($"{column} > {value}");
             return this;
         }
 
         public SqliteDriverCommand In(string column, object[] values)
         {
-            list.Add($"{column} {InjectNotClause()}IN ({string.Join(',', values.Select(c => SqliteDriverSerializer.Sanitize(c, true)))})");
+            Write($"{column} {InjectNotClause()}IN ({string.Join(',', values.Select(c => SqliteDriverSerializer.Sanitize(c, true)))})");
             return this;
         }
 
         public SqliteDriverCommand Lte(string column, object value)
         {
-            list.Add($"{column} <= {value}");
+            Write($"{column} <= {value}");
             return this;
         }
 
         public SqliteDriverCommand Lt(string column, object value)
         {
-            list.Add($"{column} < {value}");
+            Write($"{column} < {value}");
             return this;
         }
 
         public SqliteDriverCommand Offset(uint offset)
         {
-            list.Add($"OFFSET {offset}");
+            Write($"OFFSET {offset}");
             return this;
         }
 
         public SqliteDriverCommand Limit(uint limit)
         {
-            list.Add($"LIMIT {limit}");
+            Write($"LIMIT {limit}");
             return this;
         }
         public SqliteDriverCommand Delete(string table)
         {
-            list.Add("DELETE FROM " + table);
+            Write("DELETE FROM " + table);
             return this;
         }
 
         public SqliteDriverCommand Values(object[] values)
         {
-            list.Add("VALUES");
+            Write("VALUES");
             foreach (var i in values)
             {
-                list.Add($"({i})");
+                Write($"({i})");
             }
             return this;
         }
 
         public SqliteDriverCommand WriteUpdateOp(string column, UpdateOperationType operation, object value)
         {
-            list.Add($"{column} = {(operation == UpdateOperationType.Set ? value : $"{column} {(operation == UpdateOperationType.Add ? "+" : "-")} {value}")}");
+            Write($"{column} = {(operation == UpdateOperationType.Set ? value : $"{column} {(operation == UpdateOperationType.Add ? "+" : "-")} {value}")}");
             return this;
         }
 
         public SqliteDriverCommand Update(string table)
         {
-            list.Add($"UPDATE {table} SET");
+            Write($"UPDATE {table} SET");
             return this; 
         }
 
         public SqliteDriverCommand TableInfo(string name)
         {
-            list.Add($"table_info({name})");
+            Write($"table_info({name})");
             return this;
         }
 
-        public SqliteDriverCommand CreateColumn(FieldInfo field, bool addColumn)
+        public SqliteDriverCommand CreateColumn(SqliteDriverColumn clm, bool addColumn)
         {
-            var isPrimary = field.GetCustomAttribute<PrimaryKeyAttribute>() != null;
-            var foreign = field.GetCustomAttribute<ForeignKeyAttribute>();
-            var notNull = field.GetCustomAttribute<NotNullAttribute>();
-
-            var name = field.Name;
-            var type = SqliteDriverSerializer.GetDataTypeFor(field.FieldType);
-
-            list.Add($"{(addColumn ? "ADD COLUMN" : "")} {name} {SqliteDriverSerializer.ToSqlType(type)} {(isPrimary ? "PRIMARY KEY" : "")} {(notNull != null ? "NOT NULL" : "")} {(foreign != null ? $"FOREIGN KEY REFERENCES {foreign.referenceTable}({foreign.referenceColumn})" : "")}");
-
+            Write($"{(addColumn ? "ADD COLUMN" : "")} {clm.name} {SqliteDriverSerializer.ToSqlType(clm.type)} {(clm.primary ? "PRIMARY KEY" : "")} {(clm.notNull ? "NOT NULL" : "")} {(clm.foreign != null ? $"FOREIGN KEY REFERENCES {clm.foreign.referenceTable}({clm.foreign.referenceColumn})" : "")}");
             return this;
         }
 
         public SqliteDriverCommand AlterTable(string name)
         {
-            list.Add("ALTER TABLE " + name);
+            Write("ALTER TABLE " + name);
             return this;
         }
 
         public SqliteDriverCommand DropTable(string name)
         {
-            list.Add("DROP TABLE " + name);
+            Write("DROP TABLE " + name);
             return this;
         }
 
-        public SqliteDriverCommand CreateTable<T>(FieldInfo fld)
+        public SqliteDriverCommand CreateTable<T>(string table, SqliteDriverColumn[] columns)
         {
-            list.Add($"CREATE TABLE {fld.Name}");
-            list.Add("(");
+            Write($"CREATE TABLE {table}");
+            Write("(");
 
-            var fields = SqliteDriverTable<T>.GetStructFields(fld.FieldType);
-            for (int i = 0; i < fields.Length; i++)
+            for (int i = 0; i < columns.Length; i++)
             {
-                var field = fields[i];
-                CreateColumn(field, false);
-                if (i + 1 != fields.Length)
-                    list.Add(",");
+                var clm = columns[i];
+                CreateColumn(clm, false);
+                if (i + 1 != columns.Length)
+                    Write(",");
             }
 
-            list.Add(")");
+            Write(")");
             return this;
         }
 
@@ -179,38 +181,38 @@ namespace SqliteDriver
         {
             get
             {
-                list.Add("PRAGMA");
+                Write("PRAGMA");
                 return this;
             }
         }
 
         public SqliteDriverCommand Select(string[] columns, string table)
         {
-            list.Add($"SELECT {string.Join(", ", columns)} FROM {table}");
+            Write($"SELECT {string.Join(", ", columns)} FROM {table}");
             return this;
         }
 
         public SqliteDriverCommand Where()
         {
-            list.Add("WHERE");
+            Write("WHERE");
             return this;
         }
 
         public SqliteDriverCommand Eq(string column, object value)
         {
-            list.Add($"{column} = {SqliteDriverSerializer.Sanitize(value, true)}");
+            Write($"{column} = {SqliteDriverSerializer.Sanitize(value, true)}");
             return this;
         }
 
         public SqliteDriverCommand NotEq(string column, object value)
         {
-            list.Add($"{column} != {SqliteDriverSerializer.Sanitize(value, true)}");
+            Write($"{column} != {SqliteDriverSerializer.Sanitize(value, true)}");
             return this;
         }
 
         public SqliteDriverCommand StartsWith(string column, string value)
         {
-            list.Add($"{column} {InjectNotClause()}LIKE '{SqliteDriverSerializer.Sanitize(value, false)}%'");
+            Write($"{column} {InjectNotClause()}LIKE '{SqliteDriverSerializer.Sanitize(value, false)}%'");
             return this;
         }
 
@@ -229,29 +231,29 @@ namespace SqliteDriver
 
         public SqliteDriverCommand EndsWith(string column, string value)
         {
-            list.Add($"{column} {InjectNotClause()}LIKE '%{SqliteDriverSerializer.Sanitize(value, false)}'");
+            Write($"{column} {InjectNotClause()}LIKE '%{SqliteDriverSerializer.Sanitize(value, false)}'");
             return this;
         }
 
         public SqliteDriverCommand Includes(string column, string value)
         {
-            list.Add($"{column} {InjectNotClause()}LIKE '%{SqliteDriverSerializer.Sanitize(value, false)}%'");
+            Write($"{column} {InjectNotClause()}LIKE '%{SqliteDriverSerializer.Sanitize(value, false)}%'");
             return this;
         }
 
         public SqliteDriverCommand Or()
         {
-            list.Add("OR");
+            Write("OR");
             return this;
         }
 
         public SqliteDriverCommand And()
         {
-            list.Add("AND");
+            Write("AND");
             return this;
         }
 
-        public string GetSqlQuery() => string.Join(' ', list);
+        public string GetSqlQuery() => query;
 
         private void Prepare(ref SqliteCommand cmd)
         {
