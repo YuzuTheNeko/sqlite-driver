@@ -104,6 +104,21 @@ namespace SqliteDriver
             return missing.ToArray();
         }
 
+        public int InsertMany<V>(IEnumerable<V> values)
+        {
+            var cmd = driver.CreateCommand().Insert(name, columnNames).Values();
+            var count = values.Count();
+
+            int i = 0;
+            foreach (var val in values)
+            {
+                var serial = serializer.Serialize(val);
+                cmd.AddValue(string.Join(',', serial), i++ + 1 != count);
+            }
+
+            return cmd.Execute(driver.connection).RecordsAffected;
+        }
+
         public bool UpdateValue<V>(V value, SqliteDriverQueryOptions options = null)
         {
             return Update(SqliteDriverUpdateOptions.CreateUpdateOptionsForValue(value), options) != 0;
@@ -181,9 +196,9 @@ namespace SqliteDriver
 
         public void Insert<V>(V value)
         {
-            driver.CreateCommand().Insert(name, columnNames).Values(new object[]
+            driver.CreateCommand().Insert(name, columnNames).Values(new string[]
             {
-            string.Join(',', serializer.Serialize(value))
+                string.Join(',', serializer.Serialize(value))
             }).ExecuteNonQuery(driver.connection);
         }
 

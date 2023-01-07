@@ -12,6 +12,7 @@ namespace SqliteDriver
         Int,
         Text,
         Bool,
+        Guid,
         Float,
         TinyInt,
         Json
@@ -70,6 +71,7 @@ namespace SqliteDriver
         {
             return column.type switch
             {
+                SqliteDriverDataType.Guid => JsonConvert.DeserializeObject<Guid>(reader.GetString(column.index)),
                 SqliteDriverDataType.Json => JsonConvert.DeserializeObject(reader.GetString(column.index), column.realType),
                 SqliteDriverDataType.Float => reader.GetFloat(column.index),
                 SqliteDriverDataType.TinyInt => reader.GetInt16(column.index),
@@ -99,6 +101,7 @@ namespace SqliteDriver
         {
             return type switch
             {
+                SqliteDriverDataType.Guid => ((Guid)value).ToString(),
                 SqliteDriverDataType.Json => Sanitize(JsonConvert.SerializeObject(value), true),
                 SqliteDriverDataType.Float => value,
                 SqliteDriverDataType.Bool => (bool)value ? 1 : 0,
@@ -115,7 +118,7 @@ namespace SqliteDriver
                 return "null";
             else if (value is string v)
             {
-                var str = v.Replace('\'', '\0');
+                var str = v.Replace("'", "''");
                 return addCommas ? $"'{str}'" : str;
             }
             else
@@ -131,6 +134,7 @@ namespace SqliteDriver
         {
             return type switch
             {
+                SqliteDriverDataType.Guid => "TEXT",
                 SqliteDriverDataType.Float => "REAL",
                 SqliteDriverDataType.Bool => "INT",
                 SqliteDriverDataType.Int => "INT",
@@ -155,6 +159,8 @@ namespace SqliteDriver
                 return SqliteDriverDataType.TinyInt;
             else if (IsType<float>(type))
                 return SqliteDriverDataType.Float;
+            else if (IsType<Guid>(type))
+                return SqliteDriverDataType.Guid;
             else if (IsType<string>(type))
                 return SqliteDriverDataType.Text;
             else if (IsType<bool>(type))

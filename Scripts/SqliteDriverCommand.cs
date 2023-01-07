@@ -114,12 +114,25 @@ namespace SqliteDriver
             return this;
         }
 
-        public SqliteDriverCommand Values(object[] values)
+        public SqliteDriverCommand AddValue(string value, bool hasNext)
+        {
+            Write($"({value}){(hasNext ? "," : "")}");
+            return this;
+        }
+
+        public SqliteDriverCommand Values()
         {
             Write("VALUES");
-            foreach (var i in values)
+            return this;
+        }
+
+        public SqliteDriverCommand Values(string[] values)
+        {
+            Write("VALUES");
+            for (int i = 0;i < values.Length;i++)
             {
-                Write($"({i})");
+                var fld = values[i];
+                AddValue(fld, i + 1 != values.Length);
             }
             return this;
         }

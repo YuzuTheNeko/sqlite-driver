@@ -51,6 +51,8 @@ namespace SqliteDriver
             return GetTable(typeof(V)).All<V>(options);
         }
 
+        public int InsertMany<V>(IEnumerable<V> values) => GetTable<V>().InsertMany(values);
+
         public int Delete<V>(SqliteDriverQueryOptions options = null)
         {
             return GetTable(typeof(V)).Delete(options);
